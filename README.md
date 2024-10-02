@@ -11,6 +11,8 @@ The user should be able to answer questions such as:
 Initial plan is to use langchain to process speech to text documents from youtube videos
 
 to get a list of urls from a youtube playlist run the following command:
-python get_playlist_urls.py https://www.youtube.com/playlist?list=PLsLsr76bONJmnmSMQ5NmNLPEu8cXFXIwU "playlist_urls.txt"
+python get_playlist_urls.py https://www.youtube.com/your-playlist-here
 
-urls will be saved to a .txt file.
+urls will be saved to data folder in url_lists folder. 
+
+Function also checks for duplicate entries, so can add the same playlist to get new vids.
