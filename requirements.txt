@@ -12,3 +12,4 @@ tqdm
 chromadb
 tiktoken
 youtube-transcript-api
+streamlit
