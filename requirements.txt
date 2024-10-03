@@ -4,6 +4,8 @@ yt_dlp
 pydub
 langchain
 langchain-community
+langchain-openai
+langchain-chroma
 openai
 python-dotenv
 tqdm

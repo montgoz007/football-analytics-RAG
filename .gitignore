@@ -1,6 +1,7 @@
 # ignore folders
 data/
 docs/
+__pycache__
 
 # ignore dot_env
 .env
