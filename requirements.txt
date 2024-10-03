@@ -1,0 +1,12 @@
+pandas
+pytube
+yt_dlp
+pydub
+langchain
+langchain-community
+openai
+python-dotenv
+tqdm
+chromadb
+tiktoken
+youtube-transcript-api

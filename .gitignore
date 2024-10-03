@@ -1,0 +1,6 @@
+# ignore folders
+data/
+docs/
+
+# ignore dot_env
+.env
