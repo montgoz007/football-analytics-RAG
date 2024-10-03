@@ -7,6 +7,7 @@ from dotenv import load_dotenv  # Import the dotenv package
 from langchain.schema import Document
 from langchain.vectorstores import Chroma
 from langchain.embeddings import OpenAIEmbeddings  # You can change this to another embedding model if needed
+from langchain.text_splitter import RecursiveCharacterTextSplitter  # Import the text splitter
 
 # Load environment variables from .env file
 load_dotenv()
@@ -43,6 +44,12 @@ def create_vector_store_from_csv(csv_file, vectorstore_dir, embedding_model="Ope
 
     print(f"Loaded {len(docs)} documents.")
 
+    # Split documents into smaller chunks
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)  # Adjust chunk size and overlap as needed
+    split_docs = text_splitter.split_documents(docs)
+
+    print(f"Split into {len(split_docs)} chunks.")
+
     # Initialize embedding model
     if embedding_model == "OpenAI":
         # Get the OpenAI API key from the environment
@@ -58,7 +65,7 @@ def create_vector_store_from_csv(csv_file, vectorstore_dir, embedding_model="Ope
     print("Creating vector store and generating embeddings...")
 
     vectordb = Chroma.from_documents(
-        documents=tqdm(docs, desc="Processing documents", unit="doc"),  # Progress bar for documents
+        documents=tqdm(split_docs, desc="Processing chunks", unit="chunk"),  # Progress bar for chunks
         embedding=embedding,
         persist_directory=vectorstore_dir
     )
