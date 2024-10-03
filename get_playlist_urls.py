@@ -1,35 +1,46 @@
 import os
 import sys
 import pandas as pd
-from pytube import Playlist
+from pytube import Playlist, exceptions
 
-def get_playlist_urls(playlist_url, output_file):
-    """Fetch and append the URLs of all videos in a YouTube playlist to a CSV file."""
+def get_playlist_info(playlist_url, output_file):
+    """Fetch and append the URLs and titles of all videos in a YouTube playlist to a CSV file."""
     playlist = Playlist(playlist_url)
-    urls = playlist.video_urls
     
     # Ensure the 'data/url_lists' directory exists
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
-    # Load existing URLs if the file exists, otherwise create an empty DataFrame
+    # Load existing data if the file exists
     if os.path.exists(output_file):
         df_existing = pd.read_csv(output_file)
-        existing_urls = df_existing['url'].tolist()
+        existing_data = set(zip(df_existing.get('url', []), df_existing.get('title', [])))
     else:
-        df_existing = pd.DataFrame(columns=['url'])
-        existing_urls = []
+        df_existing = pd.DataFrame(columns=['url', 'title'])
+        existing_data = set()
     
-    # Filter out duplicates
-    new_urls = [url for url in urls if url not in existing_urls]
+    # Prepare new data list
+    new_data = []
     
-    # If there are new URLs, append them
-    if new_urls:
-        df_new = pd.DataFrame(new_urls, columns=['url'])
+    # Collect new URLs and titles
+    for video in playlist.videos:
+        url = video.watch_url
+        try:
+            title = video.title
+        except exceptions.PytubeError as e:
+            print(f"Error retrieving title for {url}: {e}")
+            continue  # Skip this video if there's an error
+
+        if (url, title) not in existing_data:
+            new_data.append({'url': url, 'title': title})
+    
+    # If there are new videos, append them
+    if new_data:
+        df_new = pd.DataFrame(new_data)
         df_combined = pd.concat([df_existing, df_new], ignore_index=True)
         df_combined.to_csv(output_file, index=False)
-        print(f"{len(new_urls)} new URLs have been added to {output_file}")
+        print(f"{len(new_data)} new videos have been added to {output_file}")
     else:
-        print("No new URLs to add.")
+        print("No new videos to add.")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -41,4 +52,4 @@ if __name__ == "__main__":
     # Define the output file in 'data/url_lists'
     output_file = os.path.join('data', 'url_lists', 'playlist_urls.csv')
 
-    get_playlist_urls(playlist_url, output_file)
+    get_playlist_info(playlist_url, output_file)
