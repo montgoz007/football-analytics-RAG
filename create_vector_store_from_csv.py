@@ -45,7 +45,10 @@ def create_vector_store_from_csv(csv_file, vectorstore_dir, embedding_model="Ope
     print(f"Loaded {len(docs)} documents.")
 
     # Split documents into smaller chunks
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=512, chunk_overlap=50)  # Adjust chunk size and overlap as needed
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=512, 
+        chunk_overlap=50,
+        )
     split_docs = text_splitter.split_documents(docs)
 
     print(f"Split into {len(split_docs)} chunks.")
