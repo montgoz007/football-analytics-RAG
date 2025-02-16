@@ -20,3 +20,5 @@ requests
 beautifulsoup4
 progressbar
 html5lib
+sentence-transformers
+llama-cpp-python
