@@ -48,7 +48,7 @@ def create_vector_store_from_csv(csv_file, vectorstore_dir, embedding_model="loc
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=512, 
         chunk_overlap=50,
-        )
+    )
     split_docs = text_splitter.split_documents(docs)
 
     print(f"Split into {len(split_docs)} chunks.")
@@ -85,8 +85,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--vectorstore_dir",
         type=str,
-        default="rag/docs/chroma_test/",  # New directory to store the test vector store (changed)
-        help="Directory to save the vector store (default: rag/docs/chroma_test/)"
+        default="docs/chroma_local/",  # Updated directory
+        help="Directory to save the vector store (default: docs/chroma_local/)"
     )
     parser.add_argument(
         "--embedding_model",
