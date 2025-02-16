@@ -13,3 +13,10 @@ chromadb
 tiktoken
 youtube-transcript-api
 streamlit
+selenium 
+webdriver-manager
+lxml
+requests
+beautifulsoup4
+progressbar
+html5lib
