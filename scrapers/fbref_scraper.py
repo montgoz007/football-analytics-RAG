@@ -3,14 +3,21 @@ import requests
 import pandas as pd
 import time
 import random
+import os
 from functools import reduce
 import sys
 from urllib.error import HTTPError, URLError
 from datetime import datetime
 
+# Ensure the data directory exists
 DATA_DIR = '../data/'
-REQUESTS_PER_MINUTE_LIMIT = 9 # Number of requests per minute
-BASE_WAIT_TIME = 3  # Base wait time in seconds
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+# Conservative rate limiting settings
+REQUESTS_PER_MINUTE_LIMIT = 5  # Extremely low to avoid rate limits
+BASE_WAIT_TIME = 10  # Base wait time in seconds
+MAX_WAIT_TIME = 15  # Max wait time in seconds
 LEAGUE = "Premier-League"
 LEAGUE_ID = "9"
 
@@ -19,22 +26,45 @@ LATEST_SEASON = f"{current_year-1}-{current_year}"
 PREVIOUS_SEASON = f"{current_year-2}-{current_year-1}"
 SEASONS = [PREVIOUS_SEASON, LATEST_SEASON]
 
+request_count = 0
+start_time = time.time()
 
-def fetch_with_retries(url, first_request=False):
-    retries = 3
+
+def enforce_rate_limit():
+    """Enforce a conservative delay to avoid being blocked."""
+    global request_count, start_time
+    request_count += 1
+
+    if request_count >= REQUESTS_PER_MINUTE_LIMIT:
+        elapsed_time = time.time() - start_time
+        if elapsed_time < 60:
+            wait_time = 60 - elapsed_time
+            print(f"Rate limit threshold reached. Pausing for {int(wait_time)} seconds...")
+            time.sleep(wait_time)
+
+        request_count = 0
+        start_time = time.time()
+    
+    sleep_time = BASE_WAIT_TIME + random.uniform(0, MAX_WAIT_TIME - BASE_WAIT_TIME)
+    print(f"Sleeping for {int(sleep_time)} seconds before next request...")
+    time.sleep(sleep_time)
+
+
+def fetch_with_retries(url):
+    """Fetches a URL with retries and conservative rate limiting."""
+    retries = 5  # Increase retries to handle rate limits better
     for attempt in range(retries):
+        enforce_rate_limit()
         try:
             response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
             response.raise_for_status()
             return response
         except requests.exceptions.HTTPError as e:
             if response.status_code == 429:
-                if first_request:
-                    print("Rate limited on first request. Exiting program. Please wait before retrying.")
-                    sys.exit(1)
-                wait_time = 120  # 2 minutes wait time for 429 errors
-                print(f"HTTP 429: Rate limit exceeded. Waiting {wait_time} seconds...")
+                wait_time = random.randint(180, 300)  # Wait 3-5 minutes
+                print(f"HTTP 429: Rate limit exceeded. Waiting {wait_time} seconds before retrying...")
                 time.sleep(wait_time)
+                continue
             elif attempt < retries - 1:
                 print(f"HTTP error: {e}. Retrying in {BASE_WAIT_TIME} seconds...")
                 time.sleep(BASE_WAIT_TIME)
@@ -47,10 +77,11 @@ def fetch_with_retries(url, first_request=False):
 
 
 def get_fixture_data(season):
+    """Fetches fixture data for a season."""
     print(f'Getting fixture data for {season}...')
     url = f'https://fbref.com/en/comps/{LEAGUE_ID}/{season}/schedule/{season}-{LEAGUE}-Scores-and-Fixtures'
     
-    response = fetch_with_retries(url, first_request=True)
+    response = fetch_with_retries(url)
     if response is None:
         print(f"Failed to fetch fixture data for {season}")
         return
@@ -60,8 +91,8 @@ def get_fixture_data(season):
         fixtures = tables[0][['Wk', 'Day', 'Date', 'Time', 'Home', 'Away', 'xG', 'xG.1', 'Score']].dropna()
         fixtures['season'] = season
         fixtures["game_id"] = fixtures.index
-        
-        file_path = f'{DATA_DIR}premier_league_{season}_fixture_data.csv'
+
+        file_path = os.path.join(DATA_DIR, f'premier_league_{season}_fixture_data.csv')
         fixtures.to_csv(file_path, header=True, index=False)
         print(f'Fixture data saved to {file_path}')
     except Exception as e:
@@ -69,14 +100,15 @@ def get_fixture_data(season):
 
 
 def get_match_links(season):
+    """Extracts match links for a given season."""
     print(f'Getting match links for {season}...')
     url = f'https://fbref.com/en/comps/{LEAGUE_ID}/{season}/schedule/{season}-{LEAGUE}-Scores-and-Fixtures'
-    
+
     response = fetch_with_retries(url)
     if response is None:
         print(f"Failed to fetch match links for {season}")
         return []
-    
+
     match_links = []
     try:
         links = soup(response.text, "html.parser").find_all('a')
@@ -88,13 +120,14 @@ def get_match_links(season):
                     match_links.append(full_url)
     except Exception as e:
         print(f'Error parsing match links for {season}: {e}')
+    
     return match_links
 
 
 def player_data(match_links, season):
+    """Scrapes player data for all matches in a given season."""
     print(f'Scraping player data for {season}...')
     player_data = pd.DataFrame([])
-    request_count = 0
 
     for count, link in enumerate(match_links):
         response = fetch_with_retries(link)
@@ -122,16 +155,9 @@ def player_data(match_links, season):
             player_data = pd.concat([player_data, pd.concat([t1, t2]).reset_index()])
 
             print(f'{count+1}/{len(match_links)} matches collected')
-            file_path = f'{DATA_DIR}premier_league_{season}_player_data.csv'
+            file_path = os.path.join(DATA_DIR, f'premier_league_{season}_player_data.csv')
             player_data.to_csv(file_path, header=True, index=False)
 
-            request_count += 1
-            if request_count >= REQUESTS_PER_MINUTE_LIMIT:
-                print("Rate limit reached. Pausing for 60 seconds...")
-                time.sleep(60)
-                request_count = 0
-            else:
-                time.sleep(BASE_WAIT_TIME + random.uniform(0, 2))
         except Exception as e:
             print(f'Error processing match {link}: {e}')
 
