@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from qa_module import ask_question  # Import the ask_question function from qa_module.py
+from chains.qa_module import ask_question  # Import the ask_question function from qa_module.py
 
 # Load environment variables from .env file
 load_dotenv()

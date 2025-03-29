@@ -3,11 +3,11 @@ import shutil
 import argparse
 import pandas as pd
 from tqdm import tqdm
-from dotenv import load_dotenv  # Import the dotenv package
+from dotenv import load_dotenv
 from langchain.schema import Document
 from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings  # Local embedding model
-from langchain.text_splitter import RecursiveCharacterTextSplitter  # Import the text splitter
+from langchain.embeddings import HuggingFaceEmbeddings, OpenAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,10 +22,17 @@ def create_vector_store_from_csv(csv_file, vectorstore_dir, embedding_model="loc
         embedding_model (str): Embedding model to use (default: "local").
     """
     
-    # Remove the existing vector store if it exists (for testing purposes, you can comment this out)
-    # if os.path.exists(vectorstore_dir):
-    #     shutil.rmtree(vectorstore_dir)
-    #     print(f"Removed existing vector store at {vectorstore_dir}")
+    # Check if the vector store directory already exists
+    if os.path.exists(vectorstore_dir):
+        print(f"Vector store directory '{vectorstore_dir}' already exists.")
+        user_input = input("Do you want to overwrite it? (yes/no): ").strip().lower()
+        if user_input != "yes":
+            print("Skipping vector store creation to avoid duplicates.")
+            return
+        else:
+            # Remove the existing vector store if the user confirms
+            shutil.rmtree(vectorstore_dir)
+            print(f"Removed existing vector store at {vectorstore_dir}")
 
     # Load the CSV file containing URLs and transcripts
     print(f"Loading transcripts from CSV: {csv_file}")
@@ -57,6 +64,12 @@ def create_vector_store_from_csv(csv_file, vectorstore_dir, embedding_model="loc
     if embedding_model == "local":
         # Use HuggingFace Embeddings with a local model like 'sentence-transformers/all-MiniLM-L6-v2'
         embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    elif embedding_model == "openai":
+        # Use OpenAI Embeddings
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise ValueError("OPENAI_API_KEY not found in environment variables.")
+        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     else:
         raise ValueError(f"Embedding model '{embedding_model}' is not supported")
 
