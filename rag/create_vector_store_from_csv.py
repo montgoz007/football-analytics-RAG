@@ -5,8 +5,8 @@ import pandas as pd
 from tqdm import tqdm
 from dotenv import load_dotenv
 from langchain.schema import Document
-from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceEmbeddings, OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings, OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # Load environment variables from .env file

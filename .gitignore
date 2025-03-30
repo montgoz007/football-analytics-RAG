@@ -6,3 +6,9 @@ __pycache__
 
 # ignore dot_env
 .env
+
+# ignore coverage
+.coverage
+
+# ignore vscode
+.vscode/
