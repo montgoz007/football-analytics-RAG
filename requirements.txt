@@ -22,3 +22,5 @@ progressbar
 html5lib
 sentence-transformers
 llama-cpp-python
+pytest
+pytest-cov
