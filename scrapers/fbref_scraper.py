@@ -1,104 +1,60 @@
-import cloudscraper
-from bs4 import BeautifulSoup
-import pandas as pd
 import os
-from io import StringIO
-import re
+import pandas as pd
+from bs4 import BeautifulSoup
+import cloudscraper
 
-def sanitize_filename(name):
-    """Sanitize filenames to remove invalid characters."""
-    return re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')
+# Team URLs
+TEAMS = {
+    "Tottenham": "https://fbref.com/en/squads/361ca564/Tottenham-Hotspur-Stats",
+    "Brentford": "https://fbref.com/en/squads/cd051869/Brentford-Stats"
+}
 
-def scrape_tables(url, header_rows=[0, 1]):
-    """Scrape all tables from the given URL."""
-    # Create a cloudscraper instance
-    scraper = cloudscraper.create_scraper(
-        browser={
-            'browser': 'chrome',
-            'platform': 'linux',
-            'desktop': True
-        }
-    )
+# Set up output directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, "data", "fbref_data")
+os.makedirs(DATA_DIR, exist_ok=True)
 
-    # Fetch the HTML content of the page
+def scrape_team_tables(team, url):
+    scraper = cloudscraper.create_scraper()
     response = scraper.get(url)
-    response.raise_for_status()  # Raise an error for failed requests
-
-    # Parse the HTML content using BeautifulSoup
-    soup = BeautifulSoup(response.text, 'html.parser')
-
-    # Find all tables on the page
-    tables = soup.find_all('table')
-
-    # Extract tables into pandas DataFrames
-    dataframes = []
-    for table in tables:
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    tables = soup.find_all("table")
+    team_tables = {}
+    for idx, table in enumerate(tables):
+        # Try to read as multi-header
         try:
-            # Wrap the HTML string in StringIO to avoid FutureWarning
-            df = pd.read_html(StringIO(str(table)), header=header_rows)[0]  # Read with multi-row headers
-            # Flatten multi-row headers into single row
-            df.columns = ['_'.join(col).strip() if isinstance(col, tuple) else col for col in df.columns]
-            dataframes.append(df)
+            df = pd.read_html(str(table), header=[0, 1])[0]
+            # Flatten MultiIndex columns
+            df.columns = [
+                f"{str(a).strip()}_{str(b).strip()}" if str(a).strip() != '' else str(b).strip()
+                for a, b in df.columns
+            ]
         except ValueError:
-            print("Skipping a table due to parsing issues.")
+            # Fallback to single header
+            df = pd.read_html(str(table), header=0)[0]
+        # Remove any rows where 'Player' or similar is repeated (header rows in body)
+        df = df[df[df.columns[0]] != df.columns[0]]
+        df["Team"] = team  # Add team column
+        table_id = table.get("id", f"table_{idx}")
+        team_tables[table_id] = df.reset_index(drop=True)
+    return team_tables
 
-    return dataframes
-
-def save_tables(tables, folder_path, table_titles=None):
-    """Save tables with their respective titles in the specified folder."""
-    # Ensure the folder exists
-    os.makedirs(folder_path, exist_ok=True)
-
-    # Save each table with its corresponding title
-    for i, df in enumerate(tables):
-        if table_titles and i < len(table_titles):  # Use provided titles if available
-            sanitized_title = sanitize_filename(table_titles[i])
-        else:
-            sanitized_title = f"Table_{i + 1}"  # Default title if no mapping is provided
-
-        filename = os.path.join(folder_path, f"{sanitized_title}.csv")
-        df.to_csv(filename, index=False)
-        print(f"Saved table {i + 1} as '{sanitized_title}' to {filename}")
+def merge_and_save_tables(teams):
+    all_tables = {}
+    for team, url in teams.items():
+        team_tables = scrape_team_tables(team, url)
+        for table_id, df in team_tables.items():
+            if table_id not in all_tables:
+                all_tables[table_id] = []
+            all_tables[table_id].append(df)
+    # Merge and save
+    for table_id, dfs in all_tables.items():
+        merged_df = pd.concat(dfs, ignore_index=True)
+        filename = f"{table_id}.csv"
+        filepath = os.path.join(DATA_DIR, filename)
+        merged_df.to_csv(filepath, index=False)
+        print(f"Saved merged table: {filename}")
 
 if __name__ == "__main__":
-    # URLs for squad and player data
-    squad_url = "https://fbref.com/en/comps/9/Premier-League-Stats"
-    player_url = "https://fbref.com/en/comps/9/stats/Premier-League-Stats#all_stats_standard"
-
-    # Titles for squad tables
-    squad_table_titles = [
-        "Premier League Overall",
-        "Premier League Home/Away",
-        "Squad Standard Stats",
-        "Squad Standard Stats Opponent Stats",
-        "Squad Goalkeeping",
-        "Squad Goalkeeping Opponent Stats",
-        "Squad Advanced Goalkeeping",
-        "Squad Advanced Goalkeeping Opponent Stats",
-        "Squad Shooting",
-        "Squad Shooting Opponent Stats",
-        "Squad Passing",
-        "Squad Passing Opponent Stats",
-        "Squad Pass Types",
-        "Squad Pass Types Opponent Stats",
-        "Squad Goal and Shot Creation",
-        "Squad Goal and Shot Creation Opponent Stats",
-        "Squad Defensive Actions",
-        "Squad Defensive Actions Opponent Stats",
-        "Squad Possession",
-        "Squad Possession Opponent Stats",
-        "Squad Playing Time",
-        "Squad Playing Time Opponent Stats",
-        "Squad Miscellaneous Stats",
-        "Squad Miscellaneous Stats Opponent Stats"
-    ]
-
-    # Scrape and save squad data
-    print("Scraping squad data...")
-    squad_tables = scrape_tables(squad_url)
-    save_tables(squad_tables, folder_path="fbref_data/squad_data", table_titles=squad_table_titles)
-
-    # Scrape and save player data
-    print("Scraping player data...")
-    player_tables = scrape_tables(player_url)
-    save_tables(player_tables, folder_path="fbref_data/player_data")
+    merge_and_save_tables(TEAMS)
