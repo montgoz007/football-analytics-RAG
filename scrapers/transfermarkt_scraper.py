@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import os
+import re
 
 def fetch_squad_table(url):
     headers = {
@@ -16,10 +17,16 @@ def fetch_squad_table(url):
         raise ValueError("No squad table found on the page.")
 
 def clean_and_split_player_position(df):
-    # Find the column that contains player and position info
+    # List of known positions (add more as needed)
+    positions = [
+        "Goalkeeper", "Centre-Back", "Left-Back", "Right-Back", "Defensive Midfield",
+        "Central Midfield", "Attacking Midfield", "Left Winger", "Right Winger",
+        "Centre-Forward", "Second Striker", "Left Midfield", "Right Midfield"
+    ]
+    # Create regex pattern to match any position at the end of the string
+    pattern = r'^(.*)\s+(' + '|'.join(map(re.escape, positions)) + r')$'
     player_col = [col for col in df.columns if 'Player' in col][0]
-    # Split after the last space (handles multiple spaces in name)
-    df[['Name', 'Position']] = df[player_col].str.extract(r'^(.*)\s+([^\s]+)$')
+    df[['Name', 'Position']] = df[player_col].str.extract(pattern)
     df = df.drop(columns=[player_col])
     return df
 
